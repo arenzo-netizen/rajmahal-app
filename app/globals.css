@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* ── Rajmahal Dark Theme ─────────────────────────────────────── */
+:root {
+  --raj-bg:        #2a1505;   /* dunkelbraun (aufgehellt) */
+  --raj-surface:   #3d1f08;   /* Karten-Hintergrund */
+  --raj-surface2:  #4e2a0d;   /* etwas heller */
+  --raj-border:    #6b3a12;   /* Rand */
+  --raj-gold:      #c9a23a;   /* Gold-Akzent */
+  --raj-gold-lt:   #e8c46a;   /* helles Gold */
+  --raj-amber:     #d97706;   /* Orange/Amber Buttons */
+  --raj-red:       #9b1d0a;   /* Akzent-Rot */
+  --raj-text:      #f5e8cc;   /* Haupttext warm-weiß */
+  --raj-muted:     #a08060;   /* gedämpfter Text */
+  --raj-green:     #3d7a2a;   /* Veg-Grün */
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--raj-bg);
+  color: var(--raj-text);
+  font-family: var(--font-sans, Arial, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar verstecken für Kategorie-Nav */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Select-Feld im Dark-Theme */
+select option { background: #1a0e06; color: #f5e8cc; }
+
+/* Print-Styles für Rechnung */
+@media print {
+  body { background: #fff; color: #000; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
