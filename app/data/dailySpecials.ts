@@ -6,7 +6,7 @@ import { menu } from "./menu";
 
 export interface DailySpecial {
   itemId: string;
-  discountPercent?: number; // optionaler Rabatt
+  customPrice?: number; // optionaler Sonderpreis (überschreibt Kartenpreis)
 }
 
 // Fallback-Rotation nach Wochentag (0=So, 1=Mo, …)
@@ -26,7 +26,7 @@ export function getDailySpecials(): DailySpecial[] {
       const stored = localStorage.getItem("rajmahal_daily_specials");
       if (stored) {
         const parsed: DailySpecial[] = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length === 4) return parsed;
+        if (Array.isArray(parsed) && parsed.length === 4 && parsed.every(p => p.itemId)) return parsed;
       }
     } catch { /* ignore */ }
   }

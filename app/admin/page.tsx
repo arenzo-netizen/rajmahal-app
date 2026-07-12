@@ -54,17 +54,14 @@ export default function AdminPage() {
   const [tab, setTab] = useState<"history" | "specials">("history");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [specials, setSpecials] = useState(["", "", "", ""]);
+  const [specialPrices, setSpecialPrices] = useState(["", "", "", ""]);
   const [specialsSaved, setSpecialsSaved] = useState(false);
 
   // Load daily specials from localStorage
   useEffect(() => {
     const loaded = getDailySpecials();
-    setSpecials([
-      loaded[0]?.itemId ?? "",
-      loaded[1]?.itemId ?? "",
-      loaded[2]?.itemId ?? "",
-      loaded[3]?.itemId ?? "",
-    ]);
+    setSpecials(loaded.map(s => s.itemId ?? ""));
+    setSpecialPrices(loaded.map(s => s.customPrice != null ? String(s.customPrice) : ""));
   }, []);
 
   async function login() {
@@ -87,7 +84,10 @@ export default function AdminPage() {
 
   function saveSpecials() {
     if (specials.some(s => !s)) return;
-    saveDailySpecials(specials.map(itemId => ({ itemId })));
+    saveDailySpecials(specials.map((itemId, i) => {
+      const p = parseFloat(specialPrices[i].replace(",", "."));
+      return { itemId, ...(isNaN(p) ? {} : { customPrice: p }) };
+    }));
     setSpecialsSaved(true);
     setTimeout(() => setSpecialsSaved(false), 2500);
   }
@@ -275,6 +275,7 @@ export default function AdminPage() {
 
             {[1, 2, 3, 4].map((nr, idx) => {
               const value = specials[idx];
+              const originalItem = allItems.find(i => i.id === value);
               return (
                 <div key={nr} className="mb-5">
                   <label className="block text-sm font-bold text-amber-800 mb-1.5">Tagesangebot {nr}</label>
@@ -286,6 +287,11 @@ export default function AdminPage() {
                       const updated = [...specials];
                       updated[idx] = e.target.value;
                       setSpecials(updated);
+                      // Originalpreis vorausfüllen
+                      const item = allItems.find(i => i.id === e.target.value);
+                      const updatedPrices = [...specialPrices];
+                      updatedPrices[idx] = item ? item.price.toFixed(2) : "";
+                      setSpecialPrices(updatedPrices);
                     }}
                   >
                     <option value="">— Gericht wählen —</option>
@@ -295,9 +301,31 @@ export default function AdminPage() {
                       </option>
                     ))}
                   </select>
-                  {value && (
-                    <div className="mt-1.5 px-3 py-2 bg-amber-100 border border-amber-300 rounded-lg text-xs font-semibold text-gray-900">
-                      ✓ {allItems.find(i => i.id === value)?.name} — {allItems.find(i => i.id === value)?.price.toFixed(2).replace(".", ",")} €
+                  {value && originalItem && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="flex-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-gray-700">
+                        <span className="font-semibold text-gray-900">{originalItem.name}</span>
+                        <span className="text-gray-500 ml-1">(Kartenpreis: {originalItem.price.toFixed(2).replace(".", ",")} €)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <label className="text-xs font-semibold text-amber-800 whitespace-nowrap">Sonderpreis:</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.10"
+                            className="w-24 border-2 border-amber-400 rounded-lg px-2 py-2 text-sm font-bold text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                            value={specialPrices[idx]}
+                            onChange={(e) => {
+                              const updatedPrices = [...specialPrices];
+                              updatedPrices[idx] = e.target.value;
+                              setSpecialPrices(updatedPrices);
+                            }}
+                            placeholder={originalItem.price.toFixed(2)}
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">€</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

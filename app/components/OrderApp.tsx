@@ -98,7 +98,7 @@ export default function OrderApp() {
   const [showStreetDrop, setShowStreetDrop] = useState(false);
   const streetRef = useRef<HTMLDivElement>(null);
   const [lunchOpen, setLunchOpen] = useState(false);
-  const [dailySpecialIds, setDailySpecialIds] = useState<string[]>([]);
+  const [dailySpecials, setDailySpecials] = useState<import("../data/dailySpecials").DailySpecial[]>([]);
   const [heroIdx, setHeroIdx] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"paypal" | "cash">("paypal");
   const [cashSubmitting, setCashSubmitting] = useState(false);
@@ -109,7 +109,7 @@ export default function OrderApp() {
 
   useEffect(() => {
     setLunchOpen(isLunchTime());
-    setDailySpecialIds(getDailySpecials().map((s) => s.itemId));
+    setDailySpecials(getDailySpecials());
   }, []);
 
   // Hero carousel
@@ -237,6 +237,8 @@ export default function OrderApp() {
 
   const updateQty = (cartId: string, delta: number) =>
     setCart((c) => c.map((ci) => ci.cartId === cartId ? { ...ci, qty: ci.qty + delta } : ci).filter((ci) => ci.qty > 0));
+  const removeItem = (cartId: string) => setCart((c) => c.filter((ci) => ci.cartId !== cartId));
+  const clearCart = () => setCart([]);
   const getQty = (id: string) => cart.find((ci) => ci.cartId === id)?.qty ?? 0;
 
   const canCheckout = cart.length > 0 && !belowMinOrder &&
@@ -771,7 +773,13 @@ export default function OrderApp() {
   }
 
   // ─── MENU ────────────────────────────────────────────────────────────────
-  const dailySpecialItems = dailySpecialIds.map(getItemById).filter(Boolean) as NonNullable<ReturnType<typeof getItemById>>[];
+  const dailySpecialItems = dailySpecials
+    .map(s => {
+      const item = getItemById(s.itemId);
+      if (!item) return null;
+      return s.customPrice != null ? { ...item, price: s.customPrice } : item;
+    })
+    .filter(Boolean) as NonNullable<ReturnType<typeof getItemById>>[];
 
   return (
     <div className={`min-h-screen ${D.bg} pb-28`}>
@@ -792,6 +800,11 @@ export default function OrderApp() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a href="/admin"
+              className={`text-xs px-2.5 py-1.5 rounded-full font-bold border ${D.border} ${D.surface2} ${D.muted} hover:text-[#c9a23a] transition-colors hidden sm:block`}
+              title="Admin-Bereich">
+              ⚙️
+            </a>
             <button onClick={() => setLang(iDe ? "en" : "de")}
               className={`text-xs px-2.5 py-1.5 rounded-full font-bold border ${D.border} ${D.surface2} ${D.gold}`}>
               {tr.language}
@@ -881,8 +894,11 @@ export default function OrderApp() {
         </div>
       </div>
 
-      {/* ── Menu content ── */}
-      <div className="max-w-3xl mx-auto px-4 py-4 space-y-8">
+      {/* ── Menu + Cart Sidebar ── */}
+      <div className="max-w-6xl mx-auto px-4 py-4 flex gap-6 items-start">
+
+      {/* Linke Spalte: Speisekarte */}
+      <div className="flex-1 min-w-0 space-y-8">
 
         {/* Mittagsangebot */}
         {lunchOpen && (
@@ -1003,14 +1019,99 @@ export default function OrderApp() {
             </div>
           </section>
         ))}
+      </div>{/* Ende linke Spalte */}
+
+      {/* ── Rechte Spalte: Warenkorb-Sidebar (Desktop) – fixed ── */}
+      <div className="hidden lg:block w-80 shrink-0" />
+      <div className={`hidden lg:flex flex-col fixed top-[108px] right-4 w-72 xl:w-80 z-20 ${D.surface} border ${D.border} rounded-2xl overflow-hidden shadow-xl`} style={{ maxHeight: "calc(100vh - 120px)" }}>
+          {/* Header */}
+          <div className={`flex items-center justify-between px-4 py-3 border-b ${D.border} ${D.surface2}`}>
+            <h2 className={`font-bold ${D.text} text-sm flex items-center gap-2`}>
+              🛒 {iDe ? "Warenkorb" : "Cart"}
+              {cartCount > 0 && (
+                <span className={`${D.goldBg} text-[#1a0800] text-xs font-bold px-2 py-0.5 rounded-full`}>{cartCount}</span>
+              )}
+            </h2>
+            {cartCount > 0 && (
+              <button onClick={clearCart}
+                className="text-xs text-red-400 hover:text-red-300 transition font-medium">
+                {iDe ? "Leeren" : "Clear"}
+              </button>
+            )}
+          </div>
+
+          {/* Leer */}
+          {cart.length === 0 && (
+            <div className={`text-center py-10 ${D.muted} text-sm`}>
+              <div className="text-3xl mb-2">🛒</div>
+              <p>{iDe ? "Noch nichts im Warenkorb" : "Cart is empty"}</p>
+            </div>
+          )}
+
+          {/* Artikel */}
+          {cart.length > 0 && (
+            <>
+              <div className="overflow-y-auto divide-y divide-[#3d1f08]" style={{ maxHeight: "calc(100vh - 320px)" }}>
+                {cart.map((ci) => (
+                  <div key={ci.cartId} className={`px-4 py-3 flex items-start gap-2`}>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-semibold ${D.text} leading-snug`}>
+                        {iDe ? ci.name : ci.nameEn}
+                      </p>
+                      <p className={`text-xs ${D.gold} font-bold mt-0.5`}>{formatEur(ci.price)}</p>
+                    </div>
+                    {/* +/- Buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => updateQty(ci.cartId, -1)}
+                        className={`w-6 h-6 rounded-full ${D.surface2} ${D.text} text-xs font-bold hover:bg-[#6b3a12] transition flex items-center justify-center`}>
+                        −
+                      </button>
+                      <span className={`w-5 text-center text-xs font-bold ${D.text}`}>{ci.qty}</span>
+                      <button onClick={() => updateQty(ci.cartId, +1)}
+                        className={`w-6 h-6 rounded-full ${D.goldBg} text-[#1a0800] text-xs font-bold hover:bg-[#b8922e] transition flex items-center justify-center`}>
+                        +
+                      </button>
+                    </div>
+                    {/* Preis + Löschen */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`text-xs font-bold ${D.text} whitespace-nowrap`}>{formatEur(ci.price * ci.qty)}</span>
+                      <button onClick={() => removeItem(ci.cartId)}
+                        className="text-[10px] text-red-400 hover:text-red-300 transition leading-none">
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summe */}
+              <div className={`border-t ${D.border} px-4 py-3 ${D.surface2}`}>
+                <div className={`flex justify-between text-sm font-bold ${D.text} mb-3`}>
+                  <span>{iDe ? "Gesamt" : "Total"}</span>
+                  <span className={D.gold}>{formatEur(subtotal)}</span>
+                </div>
+                {vat7.gross > 0 && (
+                  <div className={`flex justify-between text-[10px] ${D.muted} mb-1`}>
+                    <span>{tr.vat7}</span><span>{formatEur(vat7.vat)}</span>
+                  </div>
+                )}
+                <button onClick={() => setStep("checkout")}
+                  className={`w-full ${D.btn} py-3 rounded-xl text-sm font-bold transition shadow-lg`}>
+                  {iDe ? "Zur Kasse →" : "Checkout →"}
+                </button>
+              </div>
+            </>
+          )}
       </div>
 
-      {/* Floating cart button */}
+      </div>{/* Ende max-w-6xl flex */}
+
+      {/* Floating cart – nur auf Mobile sichtbar */}
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 px-4 pb-5 pointer-events-none">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 px-4 pb-5 pointer-events-none z-40">
           <button onClick={() => setStep("cart")}
             className={`pointer-events-auto w-full max-w-lg mx-auto flex items-center justify-between ${D.goldBg} hover:bg-[#b8922e] text-[#0c0703] px-5 py-4 rounded-2xl shadow-2xl font-bold transition`}>
-            <span className="bg-[#b8922e] rounded-xl px-2 py-0.5 text-sm">{cartCount}</span>
+            <span className={`bg-[#b8922e] rounded-xl px-2 py-0.5 text-sm`}>{cartCount}</span>
             <span>{tr.toCart}</span>
             <span>{formatEur(subtotal)}</span>
           </button>
