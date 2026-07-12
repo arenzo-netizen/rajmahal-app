@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { menu, MenuItem, MenuCategory } from "../data/menu";
 import { deliveryZones, getZonesForPlz, findZoneById, DeliveryZone, isValidPlz, isValidStreet, isValidPhone } from "../data/delivery";
-import { lunchItems, LunchItem, isLunchTime } from "../data/lunchMenu";
+import {
+  isLunchTime, getLunchConfig, DEFAULT_LUNCH_CONFIG,
+  LUNCH_VEG_CAT_IDS, LUNCH_VEGAN_CAT_IDS, LUNCH_CHICKEN_CAT_ID,
+  type LunchConfig,
+} from "../data/lunchMenu";
 import { getDailySpecials, getItemById } from "../data/dailySpecials";
 import { t, Lang } from "../data/i18n";
 import { calcVat, formatEur } from "../lib/vatCalc";
@@ -98,6 +102,7 @@ export default function OrderApp() {
   const [showStreetDrop, setShowStreetDrop] = useState(false);
   const streetRef = useRef<HTMLDivElement>(null);
   const [lunchOpen, setLunchOpen] = useState(false);
+  const [lunchConfig, setLunchConfig] = useState<LunchConfig>(DEFAULT_LUNCH_CONFIG);
   const [dailySpecials, setDailySpecials] = useState<import("../data/dailySpecials").DailySpecial[]>([]);
   const [heroIdx, setHeroIdx] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"paypal" | "cash">("paypal");
@@ -109,6 +114,7 @@ export default function OrderApp() {
 
   useEffect(() => {
     setLunchOpen(isLunchTime());
+    setLunchConfig(getLunchConfig());
     setDailySpecials(getDailySpecials());
   }, []);
 
@@ -226,12 +232,12 @@ export default function OrderApp() {
       return [...c, { cartId: item.id, itemId: item.id, name: item.name, nameEn: item.nameEn, nr: item.nr, price: item.price, vatRate: item.vatRate, qty: 1 }];
     });
 
-  const addLunch = (item: LunchItem) => {
+  const addLunch = (item: MenuItem, lunchPrice: number) => {
     const cid = `lunch-${item.id}`;
     setCart((c) => {
       const ex = c.find((ci) => ci.cartId === cid);
       if (ex) return c.map((ci) => ci.cartId === cid ? { ...ci, qty: ci.qty + 1 } : ci);
-      return [...c, { cartId: cid, itemId: cid, name: `☀️ ${item.name}`, nameEn: `☀️ ${item.nameEn}`, nr: item.nr, price: item.price, vatRate: 7 as const, qty: 1 }];
+      return [...c, { cartId: cid, itemId: cid, name: `☀️ ${item.name}`, nameEn: `☀️ ${item.nameEn}`, nr: item.nr, price: lunchPrice, vatRate: 7 as const, qty: 1 }];
     });
   };
 
@@ -901,45 +907,77 @@ export default function OrderApp() {
       <div className="flex-1 min-w-0 space-y-8">
 
         {/* Mittagsangebot */}
-        {lunchOpen && (
+        {lunchOpen && (() => {
+          const vegItems    = menu.filter(c => LUNCH_VEG_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegetarian && !i.vegan));
+          const veganItems  = menu.filter(c => LUNCH_VEGAN_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegan));
+          const chickenItems = menu.find(c => c.id === LUNCH_CHICKEN_CAT_ID)?.items ?? [];
+
+          const lunchCats: Array<{ key: keyof LunchConfig; label: string; labelEn: string; emoji: string; items: MenuItem[] }> = [
+            { key: "vegetarisch", label: "Vegetarisch", labelEn: "Vegetarian", emoji: "🌿", items: vegItems },
+            { key: "vegan",       label: "Vegan",       labelEn: "Vegan",      emoji: "🌱", items: veganItems },
+            { key: "haehnchen",   label: "Hähnchen",    labelEn: "Chicken",    emoji: "🍗", items: chickenItems },
+          ];
+
+          return (
           <section id="lunch-section" ref={(el) => { categoryRefs.current["lunch-section"] = el; }}>
             <div className="flex items-center gap-2 mb-1">
               <h2 className={`text-xl font-bold ${D.text}`}>{tr.lunchTitle}</h2>
-              <span className="bg-yellow-600 text-yellow-100 text-xs font-bold px-2 py-0.5 rounded-full">Mo–Fr 11–14h</span>
+              <span className="bg-yellow-600 text-yellow-100 text-xs font-bold px-2 py-0.5 rounded-full">Mo–Fr 10:30–14h</span>
             </div>
             <p className={`text-sm ${D.gold} font-medium mb-4`}>{tr.lunchSubtitle}</p>
-            <div className="grid gap-3">
-              {lunchItems.map((item) => {
-                const cid = `lunch-${item.id}`;
-                const qty = getQty(cid);
+            <div className="space-y-5">
+              {lunchCats.map(({ key, label, labelEn, emoji, items }) => {
+                const cfg = lunchConfig[key];
+                if (!cfg.enabled || items.length === 0) return null;
                 return (
-                  <div key={item.id} className={`${D.surface} rounded-2xl p-4 border ${D.border} border-l-4 border-l-yellow-600 flex items-center gap-3`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 flex-wrap mb-0.5">
-                        <span className={`text-xs ${D.muted} font-mono mr-1`}>{item.nr}</span>
-                        <span className={`font-semibold ${D.text} text-sm`}>{iDe ? item.name : item.nameEn}</span>
-                        {item.vegetarian && !item.vegan && <Badge label="🌿 Veg" color="bg-green-900 text-green-300" />}
-                        {item.vegan && <Badge label="🌱 Vegan" color="bg-emerald-900 text-emerald-300" />}
-                        {item.spicy && <Spicy n={item.spicy} />}
-                      </div>
-                      <p className={`text-xs ${D.muted} leading-snug mb-1`}>{iDe ? item.description : item.descriptionEn}</p>
-                      <p className={`${D.gold} font-bold text-sm`}>{formatEur(item.price)}</p>
+                  <div key={key}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-base">{emoji}</span>
+                      <span className={`font-bold ${D.text} text-base`}>{iDe ? label : labelEn}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-300`}>
+                        {formatEur(cfg.price)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {qty > 0 && (
-                        <>
-                          <button onClick={() => updateQty(cid, -1)} className={`w-8 h-8 rounded-full ${D.surface2} ${D.text} font-bold hover:bg-[#3d2008]`}>−</button>
-                          <span className={`w-4 text-center font-semibold text-sm ${D.text}`}>{qty}</span>
-                        </>
-                      )}
-                      <button onClick={() => addLunch(item)} className={`w-8 h-8 rounded-full ${D.goldBg} text-[#0c0703] font-bold hover:bg-[#b8922e]`}>+</button>
+                    <div className="grid gap-2">
+                      {items.map((item) => {
+                        const cid = `lunch-${item.id}`;
+                        const qty = getQty(cid);
+                        return (
+                          <div key={item.id} className={`${D.surface} rounded-xl p-3.5 border ${D.border} border-l-4 border-l-yellow-600 flex items-center gap-3`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 flex-wrap mb-0.5">
+                                <span className={`text-xs ${D.muted} font-mono mr-1`}>{item.nr}</span>
+                                <span className={`font-semibold ${D.text} text-sm`}>{iDe ? item.name : item.nameEn}</span>
+                                {item.vegan && <Badge label="🌱" color="bg-emerald-900 text-emerald-300" />}
+                                {item.vegetarian && !item.vegan && <Badge label="🌿" color="bg-green-900 text-green-300" />}
+                                {item.spicy ? <Spicy n={item.spicy} /> : null}
+                              </div>
+                              <p className={`text-xs ${D.muted} leading-snug mb-1`}>{iDe ? item.description : item.descriptionEn}</p>
+                              <div className="flex items-center gap-2">
+                                <p className={`${D.gold} font-bold text-sm`}>{formatEur(cfg.price)}</p>
+                                <p className={`text-xs ${D.muted} line-through`}>{formatEur(item.price)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {qty > 0 && (
+                                <>
+                                  <button onClick={() => updateQty(cid, -1)} className={`w-8 h-8 rounded-full ${D.surface2} ${D.text} font-bold hover:bg-[#3d2008]`}>−</button>
+                                  <span className={`w-4 text-center font-semibold text-sm ${D.text}`}>{qty}</span>
+                                </>
+                              )}
+                              <button onClick={() => addLunch(item, cfg.price)} className={`w-8 h-8 rounded-full ${D.goldBg} text-[#0c0703] font-bold hover:bg-[#b8922e]`}>+</button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
               })}
             </div>
           </section>
-        )}
+          );
+        })()}
 
         {/* Tagesangebote */}
         {dailySpecialItems.length > 0 && (

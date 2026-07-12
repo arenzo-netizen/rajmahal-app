@@ -5,6 +5,11 @@ import type { Order } from "../api/orders/route";
 import { formatEur } from "../lib/vatCalc";
 import { menu } from "../data/menu";
 import { getDailySpecials, saveDailySpecials } from "../data/dailySpecials";
+import {
+  getLunchConfig, saveLunchConfig, DEFAULT_LUNCH_CONFIG,
+  LUNCH_VEG_CAT_IDS, LUNCH_VEGAN_CAT_IDS, LUNCH_CHICKEN_CAT_ID,
+  type LunchConfig,
+} from "../data/lunchMenu";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function monthKey(iso: string) {
@@ -51,17 +56,20 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"history" | "specials">("history");
+  const [tab, setTab] = useState<"history" | "specials" | "lunch">("history");
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [lunchConfig, setLunchConfig] = useState<LunchConfig>(DEFAULT_LUNCH_CONFIG);
+  const [lunchSaved, setLunchSaved] = useState(false);
   const [specials, setSpecials] = useState(["", "", "", ""]);
   const [specialPrices, setSpecialPrices] = useState(["", "", "", ""]);
   const [specialsSaved, setSpecialsSaved] = useState(false);
 
-  // Load daily specials from localStorage
+  // Load settings from localStorage
   useEffect(() => {
     const loaded = getDailySpecials();
     setSpecials(loaded.map(s => s.itemId ?? ""));
     setSpecialPrices(loaded.map(s => s.customPrice != null ? String(s.customPrice) : ""));
+    setLunchConfig(getLunchConfig());
   }, []);
 
   async function login() {
@@ -148,11 +156,11 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="max-w-5xl mx-auto px-6 pt-4">
-        <div className="flex gap-2 mb-6">
-          {(["history", "specials"] as const).map((t) => (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {(["history", "specials", "lunch"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 rounded-full text-sm font-semibold transition ${tab === t ? "bg-amber-600 text-white" : "bg-white text-gray-600 border hover:bg-amber-50"}`}>
-              {t === "history" ? "📊 Bestellhistorie" : "⭐ Tagesangebote"}
+              {t === "history" ? "📊 Bestellhistorie" : t === "specials" ? "⭐ Tagesangebote" : "☀️ Mittagsangebot"}
             </button>
           ))}
         </div>
@@ -344,6 +352,88 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {/* ── Mittagsangebot Tab ── */}
+        {tab === "lunch" && (() => {
+          // Gerichte nach Kategorie filtern
+          const vegItems   = menu.filter(c => LUNCH_VEG_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegetarian && !i.vegan));
+          const veganItems = menu.filter(c => LUNCH_VEGAN_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegan));
+          const chickenItems = menu.find(c => c.id === LUNCH_CHICKEN_CAT_ID)?.items ?? [];
+
+          const cats: Array<{ key: keyof LunchConfig; label: string; emoji: string; items: typeof vegItems; defaultPrice: number }> = [
+            { key: "vegetarisch", label: "Vegetarisch",  emoji: "🌿", items: vegItems,    defaultPrice: 9.50 },
+            { key: "vegan",       label: "Vegan",        emoji: "🌱", items: veganItems,  defaultPrice: 8.50 },
+            { key: "haehnchen",   label: "Hähnchen",     emoji: "🍗", items: chickenItems, defaultPrice: 9.50 },
+          ];
+
+          return (
+            <div className="bg-white rounded-2xl shadow-sm p-6 max-w-2xl">
+              <h2 className="font-bold text-gray-800 mb-1">☀️ Mittagsangebot konfigurieren</h2>
+              <p className="text-sm text-gray-500 mb-5">
+                Aktiv <strong>Mo–Fr, 10:30–14:00 Uhr</strong>. Aktivieren Sie die gewünschten Kategorien und legen Sie den Mittagspreis fest.
+              </p>
+
+              {cats.map(({ key, label, emoji, items, defaultPrice }) => {
+                const cfg = lunchConfig[key];
+                return (
+                  <div key={key} className={`mb-5 rounded-xl border-2 p-4 transition ${cfg.enabled ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{emoji}</span>
+                        <span className="font-bold text-gray-900">{label}</span>
+                        <span className="text-xs text-gray-500">({items.length} Gerichte)</span>
+                      </div>
+                      {/* Toggle */}
+                      <button
+                        onClick={() => setLunchConfig(prev => ({ ...prev, [key]: { ...prev[key], enabled: !prev[key].enabled } }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${cfg.enabled ? "bg-amber-500" : "bg-gray-300"}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfg.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                      </button>
+                    </div>
+
+                    {cfg.enabled && (
+                      <>
+                        <div className="flex items-center gap-3 mb-3">
+                          <label className="text-sm font-semibold text-amber-800 whitespace-nowrap">Mittagspreis:</label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.10"
+                              className="w-28 border-2 border-amber-400 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                              value={cfg.price}
+                              onChange={(e) => setLunchConfig(prev => ({
+                                ...prev,
+                                [key]: { ...prev[key], price: parseFloat(e.target.value) || defaultPrice }
+                              }))}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">€</span>
+                          </div>
+                          <span className="text-xs text-gray-500">(Standard: {defaultPrice.toFixed(2).replace(".", ",")} €)</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto">
+                          {items.map(item => (
+                            <div key={item.id} className="text-xs text-gray-700 bg-white rounded px-2 py-1 border border-amber-200 truncate">
+                              <span className="font-mono text-gray-400 mr-1">{item.nr}</span>
+                              {item.name}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => { saveLunchConfig(lunchConfig); setLunchSaved(true); setTimeout(() => setLunchSaved(false), 2500); }}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-3 rounded-xl transition"
+              >
+                {lunchSaved ? "✅ Gespeichert!" : "Speichern"}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
