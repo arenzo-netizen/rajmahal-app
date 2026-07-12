@@ -243,8 +243,8 @@ export const menu: MenuCategory[] = [
   },
   {
     id: "lamm",
-    name: "Lamm",
-    nameEn: "Lamb",
+    name: "Lammspezialitäten",
+    nameEn: "Lamb Specialities",
     emoji: "🥩",
     subtitle: "Lammfleischspezialitäten · Serviert mit Basmati-Reis",
     subtitleEn: "Lamb specialities · Served with basmati rice",
@@ -347,8 +347,8 @@ export const menu: MenuCategory[] = [
   },
   {
     id: "vegetables",
-    name: "Vegetables",
-    nameEn: "Vegetables",
+    name: "Vegetarische Spezialitäten",
+    nameEn: "Vegetarian Specialities",
     emoji: "🌿",
     subtitle: "Vegetarische Spezialitäten · Serviert mit Basmati Reis",
     subtitleEn: "Vegetarian specialities · Served with basmati rice",
@@ -405,8 +405,8 @@ export const menu: MenuCategory[] = [
   },
   {
     id: "vegan",
-    name: "Vegan",
-    nameEn: "Vegan",
+    name: "Vegane Spezialitäten",
+    nameEn: "Vegan Specialities",
     emoji: "🌱",
     subtitle: "Vegane Spezialitäten · Serviert mit Basmati Reis",
     subtitleEn: "Vegan specialities · Served with basmati rice",
