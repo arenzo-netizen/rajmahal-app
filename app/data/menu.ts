@@ -181,8 +181,8 @@ export const menu: MenuCategory[] = [
   },
   {
     id: "huhn",
-    name: "Huhn",
-    nameEn: "Chicken",
+    name: "Hähnchenspezialitäten",
+    nameEn: "Chicken Specialities",
     emoji: "🍗",
     subtitle: "Serviert mit Basmati-Reis",
     subtitleEn: "Served with basmati rice",
