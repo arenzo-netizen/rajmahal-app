@@ -53,15 +53,18 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"history" | "specials">("history");
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [special1, setSpecial1] = useState("");
-  const [special2, setSpecial2] = useState("");
+  const [specials, setSpecials] = useState(["", "", "", ""]);
   const [specialsSaved, setSpecialsSaved] = useState(false);
 
   // Load daily specials from localStorage
   useEffect(() => {
-    const specials = getDailySpecials();
-    setSpecial1(specials[0]?.itemId ?? "");
-    setSpecial2(specials[1]?.itemId ?? "");
+    const loaded = getDailySpecials();
+    setSpecials([
+      loaded[0]?.itemId ?? "",
+      loaded[1]?.itemId ?? "",
+      loaded[2]?.itemId ?? "",
+      loaded[3]?.itemId ?? "",
+    ]);
   }, []);
 
   async function login() {
@@ -83,8 +86,8 @@ export default function AdminPage() {
   }
 
   function saveSpecials() {
-    if (!special1 || !special2) return;
-    saveDailySpecials([{ itemId: special1 }, { itemId: special2 }]);
+    if (specials.some(s => !s)) return;
+    saveDailySpecials(specials.map(itemId => ({ itemId })));
     setSpecialsSaved(true);
     setTimeout(() => setSpecialsSaved(false), 2500);
   }
@@ -189,14 +192,14 @@ export default function AdminPage() {
                   <tbody>
                     {(selectedMonth && currentStat ? [currentStat] : stats).map((s) => (
                       <tr key={s.month} className="border-t hover:bg-amber-50 cursor-pointer" onClick={() => setSelectedMonth(selectedMonth === s.month ? "" : s.month)}>
-                        <td className="px-4 py-3 font-medium">{s.month}</td>
-                        <td className="px-4 py-3 text-right">{s.count}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatEur(s.revenue)}</td>
-                        <td className="px-4 py-3 text-right text-gray-500">{formatEur(s.net7)}</td>
-                        <td className="px-4 py-3 text-right text-green-700">{formatEur(s.vat7)}</td>
-                        <td className="px-4 py-3 text-right text-gray-500">{formatEur(s.net19)}</td>
-                        <td className="px-4 py-3 text-right text-blue-700">{formatEur(s.vat19)}</td>
-                        <td className="px-4 py-3 text-right font-bold">{formatEur(s.vat7 + s.vat19)}</td>
+                        <td className="px-4 py-3 font-bold text-gray-900">{s.month}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-900">{s.count}</td>
+                        <td className="px-4 py-3 text-right font-bold text-gray-900">{formatEur(s.revenue)}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{formatEur(s.net7)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-green-800">{formatEur(s.vat7)}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{formatEur(s.net19)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-blue-800">{formatEur(s.vat19)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-gray-900">{formatEur(s.vat7 + s.vat19)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -221,8 +224,8 @@ export default function AdminPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-gray-800">{o.customer.name}</span>
-                            <span className="text-xs text-gray-400">{o.customer.phone}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${o.orderType === "pickup" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                            <span className="text-xs text-gray-600 font-medium">{o.customer.phone}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${o.orderType === "pickup" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}`}>
                               {o.orderType === "pickup" ? "🏪 Abholung" : "🚴 Lieferung"}
                             </span>
                           </div>
@@ -241,14 +244,14 @@ export default function AdminPage() {
                           {o.note && <p className="text-xs text-amber-700 mt-1">💬 {o.note}</p>}
                         </div>
                         <div className="text-right shrink-0">
-                          <div className="font-bold text-lg">{formatEur(o.total)}</div>
-                          <div className="text-xs text-gray-400">{formatDate(o.timestamp)}</div>
-                          <div className="text-xs text-gray-400">Nr. {o.id}</div>
+                          <div className="font-bold text-lg text-gray-900">{formatEur(o.total)}</div>
+                          <div className="text-xs text-gray-700 font-medium">{formatDate(o.timestamp)}</div>
+                          <div className="text-xs text-gray-600 font-mono">Nr. {o.id}</div>
                           <a
                             href={`/rechnung?id=${o.id}&data=${encodeURIComponent(JSON.stringify(o))}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs text-amber-700 hover:underline"
+                            className="text-xs font-semibold text-amber-800 hover:text-amber-600 hover:underline"
                           >
                             🖨️ Rechnung
                           </a>
@@ -267,38 +270,49 @@ export default function AdminPage() {
           <div className="bg-white rounded-2xl shadow-sm p-6 max-w-xl">
             <h2 className="font-bold text-gray-800 mb-2">⭐ Tagesangebote festlegen</h2>
             <p className="text-sm text-gray-500 mb-5">
-              Wählen Sie 2 Gerichte aus der Speisekarte. Die Auswahl gilt für alle Kunden auf diesem Gerät (Browser-Speicher).
-              Für eine serverübergreifende Lösung empfiehlt sich eine Datenbank-Integration.
+              Wählen Sie 4 Gerichte aus der Speisekarte als Tagesangebote aus.
             </p>
 
-            {[{ label: "Tagesangebot 1", value: special1, set: setSpecial1 },
-              { label: "Tagesangebot 2", value: special2, set: setSpecial2 }].map(({ label, value, set }) => (
-              <div key={label} className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                <select
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  value={value}
-                  onChange={(e) => set(e.target.value)}
-                >
-                  <option value="">— Gericht wählen —</option>
-                  {allItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      [{item.catName}] {item.name} – {item.price.toFixed(2).replace(".", ",")} €
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+            {[1, 2, 3, 4].map((nr, idx) => {
+              const value = specials[idx];
+              return (
+                <div key={nr} className="mb-5">
+                  <label className="block text-sm font-bold text-amber-800 mb-1.5">Tagesangebot {nr}</label>
+                  <select
+                    className={`w-full border-2 rounded-xl px-3 py-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 transition appearance-none cursor-pointer
+                      ${value ? "border-amber-500 bg-amber-50" : "border-gray-300 bg-white"}`}
+                    value={value}
+                    onChange={(e) => {
+                      const updated = [...specials];
+                      updated[idx] = e.target.value;
+                      setSpecials(updated);
+                    }}
+                  >
+                    <option value="">— Gericht wählen —</option>
+                    {allItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        [{item.catName}] {item.name} – {item.price.toFixed(2).replace(".", ",")} €
+                      </option>
+                    ))}
+                  </select>
+                  {value && (
+                    <div className="mt-1.5 px-3 py-2 bg-amber-100 border border-amber-300 rounded-lg text-xs font-semibold text-gray-900">
+                      ✓ {allItems.find(i => i.id === value)?.name} — {allItems.find(i => i.id === value)?.price.toFixed(2).replace(".", ",")} €
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             <button
               onClick={saveSpecials}
-              disabled={!special1 || !special2 || special1 === special2}
+              disabled={specials.some(s => !s) || new Set(specials).size < 4}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-3 rounded-xl transition disabled:opacity-50"
             >
               {specialsSaved ? "✅ Gespeichert!" : "Speichern"}
             </button>
-            {special1 === special2 && special1 !== "" && (
-              <p className="text-red-500 text-xs mt-2">Bitte zwei verschiedene Gerichte wählen.</p>
+            {new Set(specials.filter(Boolean)).size < specials.filter(Boolean).length && (
+              <p className="text-red-500 text-xs mt-2">Bitte 4 verschiedene Gerichte wählen.</p>
             )}
           </div>
         )}
