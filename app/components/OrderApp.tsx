@@ -793,17 +793,13 @@ export default function OrderApp() {
       {/* ── Sticky header ── */}
       <header className={`sticky top-0 z-30 ${D.surface} border-b ${D.border} shadow-xl`}>
         <div className="max-w-3xl mx-auto px-4 pt-3 pb-1 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Logo-Platzhalter – ersetzen durch <Image src="/images/logo.png" .../> wenn Datei vorhanden */}
-            <div className="w-10 h-10 rounded-full bg-[#c9a23a] flex items-center justify-center text-[#0c0703] font-extrabold text-sm select-none">R</div>
-            <div>
-              <h1 className={`font-extrabold ${D.gold} text-xl leading-tight`} style={{ fontFamily: "Georgia, serif", letterSpacing: "0.05em" }}>
-                RAJMAHAL
-              </h1>
-              <p className={`text-[10px] ${D.muted} uppercase tracking-widest`}>
-                {iDe ? "Indisches Restaurant · Schkeuditz" : "Indian Restaurant · Schkeuditz"}
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <img
+              src="/images/logo.png"
+              alt="Rajmahal"
+              className="h-14 w-auto"
+              style={{ maxWidth: "180px", objectFit: "contain" }}
+            />
           </div>
           <div className="flex items-center gap-2">
             <a href="/admin"
@@ -872,12 +868,12 @@ export default function OrderApp() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/70" />
         {/* Hero-Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-          <p className="text-[#c9a23a] text-xs uppercase tracking-[0.2em] mb-1 font-semibold">
-            {iDe ? "Authentische indische Küche" : "Authentic Indian cuisine"}
-          </p>
-          <h2 className="text-white text-3xl sm:text-4xl font-extrabold mb-3 drop-shadow-lg" style={{ fontFamily: "Georgia, serif", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>
-            Rajmahal
-          </h2>
+          <img
+            src="/images/logo.png"
+            alt="Rajmahal"
+            className="mb-3 drop-shadow-2xl"
+            style={{ height: "140px", width: "auto", maxWidth: "360px", objectFit: "contain" }}
+          />
           <div className="flex gap-3 text-sm text-white/90 flex-wrap justify-center font-medium">
             <span>🏪 {iDe ? "Abholung" : "Pickup"}</span>
             <span className="text-[#c9a23a]">·</span>
