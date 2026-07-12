@@ -18,6 +18,7 @@ const SMTP_USER    = process.env.SMTP_USER    ?? "";
 const SMTP_PASS    = process.env.SMTP_PASS    ?? "";
 const MAIL_TO      = process.env.MAIL_TO      ?? "";
 const MAIL_FROM    = process.env.MAIL_FROM    ?? SMTP_USER;
+const RESEND_KEY   = process.env.RESEND_API_KEY ?? "";
 
 // ─── Vercel KV / Upstash REST-API ─────────────────────────────────────────────
 // Vercel KV (alt) oder Upstash Marketplace – beide Varianten werden unterstützt.
@@ -221,16 +222,48 @@ function buildHtml(order: Order, forCustomer: boolean): string {
 
 // ─── E-Mail ───────────────────────────────────────────────────────────────────
 async function sendOrderMail(order: Order): Promise<void> {
+  const isDelivery = order.orderType === "delivery";
+  const subject = `🍛 Bestellung #${order.id} – ${fmt(order.total)} – ${isDelivery ? "Lieferung" : "Abholung"}`;
+
+  // ── Resend (Vercel / Produktion) ──────────────────────────────────────────
+  if (RESEND_KEY) {
+    const resendFrom = MAIL_FROM
+      ? `Rajmahal Schkeuditz <${MAIL_FROM}>`
+      : "Rajmahal Schkeuditz <onboarding@resend.dev>";
+
+    const send = async (to: string, subj: string, html: string) => {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from: resendFrom, to: [to], subject: subj, html }),
+        cache: "no-store" as RequestCache,
+      });
+      if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+    };
+
+    if (MAIL_TO) await send(MAIL_TO, `[NEU] ${subject}`, buildHtml(order, false));
+    if (order.customer.email) {
+      await send(
+        order.customer.email,
+        `Ihre Bestellung #${order.id} – Rajmahal Schkeuditz`,
+        buildHtml(order, true),
+      );
+    }
+    return;
+  }
+
+  // ── Nodemailer SMTP (lokale Entwicklung) ──────────────────────────────────
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !MAIL_TO) {
-    console.warn("SMTP nicht konfiguriert – E-Mail wird nicht gesendet.");
+    console.warn("Kein E-Mail-Service konfiguriert – E-Mail wird nicht gesendet.");
     return;
   }
   const transporter = nodemailer.createTransport({
     host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
-  const isDelivery = order.orderType === "delivery";
-  const subject = `🍛 Bestellung #${order.id} – ${fmt(order.total)} – ${isDelivery ? "Lieferung" : "Abholung"}`;
   await transporter.sendMail({
     from: `"Rajmahal Online-Bestellung" <${MAIL_FROM}>`,
     to: MAIL_TO,
