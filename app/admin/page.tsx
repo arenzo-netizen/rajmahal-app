@@ -6,8 +6,7 @@ import { formatEur } from "../lib/vatCalc";
 import { menu } from "../data/menu";
 import { getDailySpecials, saveDailySpecials } from "../data/dailySpecials";
 import {
-  getLunchConfig, saveLunchConfig, DEFAULT_LUNCH_CONFIG,
-  LUNCH_VEG_CAT_IDS, LUNCH_VEGAN_CAT_IDS, LUNCH_CHICKEN_CAT_ID,
+  getLunchConfig, saveLunchConfig, DEFAULT_LUNCH_CONFIG, LUNCH_ELIGIBLE_CAT_IDS,
   type LunchConfig,
 } from "../data/lunchMenu";
 
@@ -354,14 +353,21 @@ export default function AdminPage() {
         )}
         {/* ── Mittagsangebot Tab ── */}
         {tab === "lunch" && (() => {
-          const vegItems     = menu.filter(c => LUNCH_VEG_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegetarian && !i.vegan));
-          const veganItems   = menu.filter(c => LUNCH_VEGAN_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegan));
-          const chickenItems = menu.find(c => c.id === LUNCH_CHICKEN_CAT_ID)?.items ?? [];
+          const eligibleCats = menu.filter(c => LUNCH_ELIGIBLE_CAT_IDS.includes(c.id));
 
-          const cats: Array<{ key: "vegetarisch" | "vegan" | "haehnchen"; label: string; emoji: string; items: typeof vegItems; defaultPrice: number }> = [
-            { key: "vegetarisch", label: "Vegetarisch", emoji: "🌿", items: vegItems,     defaultPrice: 9.50 },
-            { key: "vegan",       label: "Vegan",       emoji: "🌱", items: veganItems,   defaultPrice: 8.50 },
-            { key: "haehnchen",   label: "Hähnchen",    emoji: "🍗", items: chickenItems, defaultPrice: 9.50 },
+          // Anzeigename: erster Teil des Untertitels (vor "·"), sonst Kategoriename
+          const catLabel = (cat: typeof eligibleCats[0]) => {
+            if (cat.subtitle) {
+              const first = cat.subtitle.split("·")[0].trim();
+              if (!first.startsWith("Serviert")) return first;
+            }
+            return cat.name;
+          };
+
+          const slots: Array<{ key: "vegetarisch" | "vegan" | "haehnchen"; label: string; emoji: string; defaultPrice: number }> = [
+            { key: "vegetarisch", label: "Vegetarisch", emoji: "🌿", defaultPrice: 9.50 },
+            { key: "vegan",       label: "Vegan",       emoji: "🌱", defaultPrice: 8.50 },
+            { key: "haehnchen",   label: "Hähnchen",    emoji: "🍗", defaultPrice: 9.50 },
           ];
 
           const weekdays = [
@@ -412,29 +418,30 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* 3 Kategorien */}
-              {cats.map(({ key, label, emoji, items, defaultPrice }) => {
+              {/* 3 Slots – Kategorie wählen */}
+              {slots.map(({ key, label, emoji, defaultPrice }) => {
                 const cfg = lunchConfig[key];
+                const selectedCat = eligibleCats.find(c => c.id === cfg.categoryId);
                 return (
                   <div key={key} className="mb-5">
                     <label className="block text-sm font-bold text-amber-800 mb-1.5">{emoji} {label}</label>
                     <select
                       className={`w-full border-2 rounded-xl px-3 py-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 transition appearance-none cursor-pointer
-                        ${cfg.itemId ? "border-amber-500 bg-amber-50" : "border-gray-300 bg-white"}`}
-                      value={cfg.itemId}
-                      onChange={(e) => setLunchConfig(prev => ({ ...prev, [key]: { ...prev[key], itemId: e.target.value } }))}
+                        ${cfg.categoryId ? "border-amber-500 bg-amber-50" : "border-gray-300 bg-white"}`}
+                      value={cfg.categoryId}
+                      onChange={(e) => setLunchConfig(prev => ({ ...prev, [key]: { ...prev[key], categoryId: e.target.value } }))}
                     >
-                      <option value="">— Gericht wählen —</option>
-                      {items.map(item => (
-                        <option key={item.id} value={item.id}>
-                          [{item.nr}] {item.name} – {item.price.toFixed(2).replace(".", ",")} €
+                      <option value="">— Gericht-Kategorie wählen —</option>
+                      {eligibleCats.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.emoji} {catLabel(cat)} ({cat.items.length} Gerichte)
                         </option>
                       ))}
                     </select>
-                    {cfg.itemId && (
+                    {cfg.categoryId && selectedCat && (
                       <div className="mt-2 flex items-center gap-3">
                         <span className="text-xs text-gray-600 flex-1">
-                          ✓ {items.find(i => i.id === cfg.itemId)?.name}
+                          ✓ {selectedCat.emoji} {catLabel(selectedCat)} – {selectedCat.items.length} Gerichte zum Mittagspreis
                         </span>
                         <label className="text-xs font-semibold text-amber-800 whitespace-nowrap">Mittagspreis:</label>
                         <div className="relative">

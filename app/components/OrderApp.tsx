@@ -5,7 +5,6 @@ import { menu, MenuItem, MenuCategory } from "../data/menu";
 import { deliveryZones, getZonesForPlz, findZoneById, DeliveryZone, isValidPlz, isValidStreet, isValidPhone } from "../data/delivery";
 import {
   isLunchTime, getLunchConfig, DEFAULT_LUNCH_CONFIG,
-  LUNCH_VEG_CAT_IDS, LUNCH_VEGAN_CAT_IDS, LUNCH_CHICKEN_CAT_ID,
   type LunchConfig,
 } from "../data/lunchMenu";
 import { getDailySpecials, getItemById } from "../data/dailySpecials";
@@ -909,67 +908,60 @@ export default function OrderApp() {
 
         {/* Mittagsangebot */}
         {lunchOpen && (() => {
-          const lunchEntries = (
-            [
-              { key: "vegetarisch" as const },
-              { key: "vegan"       as const },
-              { key: "haehnchen"   as const },
-            ] as const
-          )
-            .map(({ key }) => {
+          const lunchSections = (["vegetarisch", "vegan", "haehnchen"] as const)
+            .map(key => {
               const cfg = lunchConfig[key];
-              if (!cfg.enabled || !cfg.itemId) return null;
-              const item = getItemById(cfg.itemId);
-              if (!item) return null;
-              return { key, item, price: cfg.price };
+              if (!cfg.enabled || !cfg.categoryId) return null;
+              const cat = menu.find(c => c.id === cfg.categoryId);
+              if (!cat || cat.items.length === 0) return null;
+              return { key, cat, price: cfg.price };
             })
-            .filter(Boolean) as { key: string; item: NonNullable<ReturnType<typeof getItemById>>; price: number }[];
+            .filter(Boolean) as { key: string; cat: MenuCategory; price: number }[];
 
-          if (lunchEntries.length === 0) return null;
-
-          const startLabel = lunchConfig.startTime;
-          const endLabel   = lunchConfig.endTime;
+          if (lunchSections.length === 0) return null;
 
           return (
           <section id="lunch-section" ref={(el) => { categoryRefs.current["lunch-section"] = el; }}>
             <div className="flex items-center gap-2 mb-1">
               <h2 className={`text-xl font-bold ${D.text}`}>{tr.lunchTitle}</h2>
-              <span className="bg-yellow-600 text-yellow-100 text-xs font-bold px-2 py-0.5 rounded-full">{startLabel}–{endLabel}</span>
+              <span className="bg-yellow-600 text-yellow-100 text-xs font-bold px-2 py-0.5 rounded-full">{lunchConfig.startTime}–{lunchConfig.endTime}</span>
             </div>
             <p className={`text-sm ${D.gold} font-medium mb-4`}>{tr.lunchSubtitle}</p>
             <div className="grid gap-3">
-              {lunchEntries.map(({ key, item, price }) => {
-                const cid = `lunch-${item.id}`;
-                const qty = getQty(cid);
-                return (
-                  <div key={key} className={`${D.surface} rounded-2xl p-4 border ${D.border} border-l-4 border-l-yellow-600 flex items-center gap-3`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 flex-wrap mb-0.5">
-                        <span className={`text-xs ${D.muted} font-mono mr-1`}>{item.nr}</span>
-                        <span className={`font-semibold ${D.text} text-sm`}>{iDe ? item.name : item.nameEn}</span>
-                        {item.vegan && <Badge label="🌱 Vegan" color="bg-emerald-900 text-emerald-300" />}
-                        {item.vegetarian && !item.vegan && <Badge label="🌿 Veg" color="bg-green-900 text-green-300" />}
-                        {item.spicy ? <Spicy n={item.spicy} /> : null}
-                        <Badge label="☀️ Mittag" color="bg-yellow-900/50 text-yellow-300" />
+              {lunchSections.flatMap(({ cat, price }) =>
+                cat.items.map(item => {
+                  const cid = `lunch-${item.id}`;
+                  const qty = getQty(cid);
+                  return (
+                    <div key={cid} className={`${D.surface} rounded-2xl p-4 border ${D.border} border-l-4 border-l-yellow-600 flex items-center gap-3`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap mb-0.5">
+                          <span className={`text-xs ${D.muted} font-mono mr-1`}>{item.nr}</span>
+                          <span className={`font-semibold ${D.text} text-sm`}>{iDe ? item.name : item.nameEn}</span>
+                          {item.vegan && <Badge label="🌱 Vegan" color="bg-emerald-900 text-emerald-300" />}
+                          {item.vegetarian && !item.vegan && <Badge label="🌿 Veg" color="bg-green-900 text-green-300" />}
+                          {item.spicy ? <Spicy n={item.spicy} /> : null}
+                          <Badge label="☀️ Mittag" color="bg-yellow-900/50 text-yellow-300" />
+                        </div>
+                        <p className={`text-xs ${D.muted} leading-snug mb-1`}>{iDe ? item.description : item.descriptionEn}</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`${D.gold} font-bold text-sm`}>{formatEur(price)}</p>
+                          <p className={`text-xs ${D.muted} line-through`}>{formatEur(item.price)}</p>
+                        </div>
                       </div>
-                      <p className={`text-xs ${D.muted} leading-snug mb-1`}>{iDe ? item.description : item.descriptionEn}</p>
-                      <div className="flex items-center gap-2">
-                        <p className={`${D.gold} font-bold text-sm`}>{formatEur(price)}</p>
-                        <p className={`text-xs ${D.muted} line-through`}>{formatEur(item.price)}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {qty > 0 && (
+                          <>
+                            <button onClick={() => updateQty(cid, -1)} className={`w-8 h-8 rounded-full ${D.surface2} ${D.text} font-bold hover:bg-[#3d2008]`}>−</button>
+                            <span className={`w-4 text-center font-semibold text-sm ${D.text}`}>{qty}</span>
+                          </>
+                        )}
+                        <button onClick={() => addLunch(item, price)} className={`w-8 h-8 rounded-full ${D.goldBg} text-[#0c0703] font-bold hover:bg-[#b8922e]`}>+</button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {qty > 0 && (
-                        <>
-                          <button onClick={() => updateQty(cid, -1)} className={`w-8 h-8 rounded-full ${D.surface2} ${D.text} font-bold hover:bg-[#3d2008]`}>−</button>
-                          <span className={`w-4 text-center font-semibold text-sm ${D.text}`}>{qty}</span>
-                        </>
-                      )}
-                      <button onClick={() => addLunch(item, price)} className={`w-8 h-8 rounded-full ${D.goldBg} text-[#0c0703] font-bold hover:bg-[#b8922e]`}>+</button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </section>
           );

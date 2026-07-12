@@ -3,7 +3,7 @@
 export interface LunchCategoryConfig {
   enabled: boolean;
   price: number;
-  itemId: string; // ausgewähltes Gericht (ID aus dem Hauptmenü)
+  categoryId: string; // ausgewählte Menükategorie-ID
 }
 
 export interface LunchConfig {
@@ -16,13 +16,18 @@ export interface LunchConfig {
 }
 
 export const DEFAULT_LUNCH_CONFIG: LunchConfig = {
-  vegetarisch: { enabled: true, price: 9.50, itemId: "" },
-  vegan:       { enabled: true, price: 8.50, itemId: "" },
-  haehnchen:   { enabled: true, price: 9.50, itemId: "" },
+  vegetarisch: { enabled: true, price: 9.50, categoryId: "" },
+  vegan:       { enabled: true, price: 8.50, categoryId: "" },
+  haehnchen:   { enabled: true, price: 9.50, categoryId: "" },
   startTime: "10:30",
   endTime:   "14:00",
   days: [1, 2, 3, 4, 5], // Mo–Fr
 };
+
+// Hauptgericht-Kategorien, die im Admin-Dropdown zur Auswahl stehen
+export const LUNCH_ELIGIBLE_CAT_IDS = [
+  "biryani", "tandoori", "veg-grill", "huhn", "lamm", "fisch", "garnelen", "vegetables", "vegan",
+];
 
 /** Prüft ob aktuell Mittagszeit ist (nutzt gespeicherte Konfiguration) */
 export function isLunchTime(config?: LunchConfig): boolean {
@@ -68,7 +73,3 @@ export function saveLunchConfig(config: LunchConfig): void {
   }
 }
 
-// Menü-Kategorien für die Dropdown-Filter im Admin
-export const LUNCH_VEG_CAT_IDS    = ["biryani", "vegetables"];
-export const LUNCH_VEGAN_CAT_IDS  = ["biryani", "vegetables", "vegan"];
-export const LUNCH_CHICKEN_CAT_ID = "huhn";
