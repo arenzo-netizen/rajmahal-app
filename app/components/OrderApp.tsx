@@ -113,8 +113,9 @@ export default function OrderApp() {
   const PAYPAL_CLIENT_ID = "sb";
 
   useEffect(() => {
-    setLunchOpen(isLunchTime());
-    setLunchConfig(getLunchConfig());
+    const cfg = getLunchConfig();
+    setLunchConfig(cfg);
+    setLunchOpen(isLunchTime(cfg));
     setDailySpecials(getDailySpecials());
   }, []);
 
@@ -908,68 +909,63 @@ export default function OrderApp() {
 
         {/* Mittagsangebot */}
         {lunchOpen && (() => {
-          const vegItems    = menu.filter(c => LUNCH_VEG_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegetarian && !i.vegan));
-          const veganItems  = menu.filter(c => LUNCH_VEGAN_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegan));
-          const chickenItems = menu.find(c => c.id === LUNCH_CHICKEN_CAT_ID)?.items ?? [];
+          const lunchEntries = (
+            [
+              { key: "vegetarisch" as const },
+              { key: "vegan"       as const },
+              { key: "haehnchen"   as const },
+            ] as const
+          )
+            .map(({ key }) => {
+              const cfg = lunchConfig[key];
+              if (!cfg.enabled || !cfg.itemId) return null;
+              const item = getItemById(cfg.itemId);
+              if (!item) return null;
+              return { key, item, price: cfg.price };
+            })
+            .filter(Boolean) as { key: string; item: NonNullable<ReturnType<typeof getItemById>>; price: number }[];
 
-          const lunchCats: Array<{ key: keyof LunchConfig; label: string; labelEn: string; emoji: string; items: MenuItem[] }> = [
-            { key: "vegetarisch", label: "Vegetarisch", labelEn: "Vegetarian", emoji: "🌿", items: vegItems },
-            { key: "vegan",       label: "Vegan",       labelEn: "Vegan",      emoji: "🌱", items: veganItems },
-            { key: "haehnchen",   label: "Hähnchen",    labelEn: "Chicken",    emoji: "🍗", items: chickenItems },
-          ];
+          if (lunchEntries.length === 0) return null;
+
+          const startLabel = lunchConfig.startTime;
+          const endLabel   = lunchConfig.endTime;
 
           return (
           <section id="lunch-section" ref={(el) => { categoryRefs.current["lunch-section"] = el; }}>
             <div className="flex items-center gap-2 mb-1">
               <h2 className={`text-xl font-bold ${D.text}`}>{tr.lunchTitle}</h2>
-              <span className="bg-yellow-600 text-yellow-100 text-xs font-bold px-2 py-0.5 rounded-full">Mo–Fr 10:30–14h</span>
+              <span className="bg-yellow-600 text-yellow-100 text-xs font-bold px-2 py-0.5 rounded-full">{startLabel}–{endLabel}</span>
             </div>
             <p className={`text-sm ${D.gold} font-medium mb-4`}>{tr.lunchSubtitle}</p>
-            <div className="space-y-5">
-              {lunchCats.map(({ key, label, labelEn, emoji, items }) => {
-                const cfg = lunchConfig[key];
-                if (!cfg.enabled || items.length === 0) return null;
+            <div className="grid gap-3">
+              {lunchEntries.map(({ key, item, price }) => {
+                const cid = `lunch-${item.id}`;
+                const qty = getQty(cid);
                 return (
-                  <div key={key}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">{emoji}</span>
-                      <span className={`font-bold ${D.text} text-base`}>{iDe ? label : labelEn}</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-300`}>
-                        {formatEur(cfg.price)}
-                      </span>
+                  <div key={key} className={`${D.surface} rounded-2xl p-4 border ${D.border} border-l-4 border-l-yellow-600 flex items-center gap-3`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 flex-wrap mb-0.5">
+                        <span className={`text-xs ${D.muted} font-mono mr-1`}>{item.nr}</span>
+                        <span className={`font-semibold ${D.text} text-sm`}>{iDe ? item.name : item.nameEn}</span>
+                        {item.vegan && <Badge label="🌱 Vegan" color="bg-emerald-900 text-emerald-300" />}
+                        {item.vegetarian && !item.vegan && <Badge label="🌿 Veg" color="bg-green-900 text-green-300" />}
+                        {item.spicy ? <Spicy n={item.spicy} /> : null}
+                        <Badge label="☀️ Mittag" color="bg-yellow-900/50 text-yellow-300" />
+                      </div>
+                      <p className={`text-xs ${D.muted} leading-snug mb-1`}>{iDe ? item.description : item.descriptionEn}</p>
+                      <div className="flex items-center gap-2">
+                        <p className={`${D.gold} font-bold text-sm`}>{formatEur(price)}</p>
+                        <p className={`text-xs ${D.muted} line-through`}>{formatEur(item.price)}</p>
+                      </div>
                     </div>
-                    <div className="grid gap-2">
-                      {items.map((item) => {
-                        const cid = `lunch-${item.id}`;
-                        const qty = getQty(cid);
-                        return (
-                          <div key={item.id} className={`${D.surface} rounded-xl p-3.5 border ${D.border} border-l-4 border-l-yellow-600 flex items-center gap-3`}>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1 flex-wrap mb-0.5">
-                                <span className={`text-xs ${D.muted} font-mono mr-1`}>{item.nr}</span>
-                                <span className={`font-semibold ${D.text} text-sm`}>{iDe ? item.name : item.nameEn}</span>
-                                {item.vegan && <Badge label="🌱" color="bg-emerald-900 text-emerald-300" />}
-                                {item.vegetarian && !item.vegan && <Badge label="🌿" color="bg-green-900 text-green-300" />}
-                                {item.spicy ? <Spicy n={item.spicy} /> : null}
-                              </div>
-                              <p className={`text-xs ${D.muted} leading-snug mb-1`}>{iDe ? item.description : item.descriptionEn}</p>
-                              <div className="flex items-center gap-2">
-                                <p className={`${D.gold} font-bold text-sm`}>{formatEur(cfg.price)}</p>
-                                <p className={`text-xs ${D.muted} line-through`}>{formatEur(item.price)}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {qty > 0 && (
-                                <>
-                                  <button onClick={() => updateQty(cid, -1)} className={`w-8 h-8 rounded-full ${D.surface2} ${D.text} font-bold hover:bg-[#3d2008]`}>−</button>
-                                  <span className={`w-4 text-center font-semibold text-sm ${D.text}`}>{qty}</span>
-                                </>
-                              )}
-                              <button onClick={() => addLunch(item, cfg.price)} className={`w-8 h-8 rounded-full ${D.goldBg} text-[#0c0703] font-bold hover:bg-[#b8922e]`}>+</button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {qty > 0 && (
+                        <>
+                          <button onClick={() => updateQty(cid, -1)} className={`w-8 h-8 rounded-full ${D.surface2} ${D.text} font-bold hover:bg-[#3d2008]`}>−</button>
+                          <span className={`w-4 text-center font-semibold text-sm ${D.text}`}>{qty}</span>
+                        </>
+                      )}
+                      <button onClick={() => addLunch(item, price)} className={`w-8 h-8 rounded-full ${D.goldBg} text-[#0c0703] font-bold hover:bg-[#b8922e]`}>+</button>
                     </div>
                   </div>
                 );

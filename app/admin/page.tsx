@@ -354,72 +354,101 @@ export default function AdminPage() {
         )}
         {/* ── Mittagsangebot Tab ── */}
         {tab === "lunch" && (() => {
-          // Gerichte nach Kategorie filtern
-          const vegItems   = menu.filter(c => LUNCH_VEG_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegetarian && !i.vegan));
-          const veganItems = menu.filter(c => LUNCH_VEGAN_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegan));
+          const vegItems     = menu.filter(c => LUNCH_VEG_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegetarian && !i.vegan));
+          const veganItems   = menu.filter(c => LUNCH_VEGAN_CAT_IDS.includes(c.id)).flatMap(c => c.items.filter(i => i.vegan));
           const chickenItems = menu.find(c => c.id === LUNCH_CHICKEN_CAT_ID)?.items ?? [];
 
-          const cats: Array<{ key: keyof LunchConfig; label: string; emoji: string; items: typeof vegItems; defaultPrice: number }> = [
-            { key: "vegetarisch", label: "Vegetarisch",  emoji: "🌿", items: vegItems,    defaultPrice: 9.50 },
-            { key: "vegan",       label: "Vegan",        emoji: "🌱", items: veganItems,  defaultPrice: 8.50 },
-            { key: "haehnchen",   label: "Hähnchen",     emoji: "🍗", items: chickenItems, defaultPrice: 9.50 },
+          const cats: Array<{ key: "vegetarisch" | "vegan" | "haehnchen"; label: string; emoji: string; items: typeof vegItems; defaultPrice: number }> = [
+            { key: "vegetarisch", label: "Vegetarisch", emoji: "🌿", items: vegItems,     defaultPrice: 9.50 },
+            { key: "vegan",       label: "Vegan",       emoji: "🌱", items: veganItems,   defaultPrice: 8.50 },
+            { key: "haehnchen",   label: "Hähnchen",    emoji: "🍗", items: chickenItems, defaultPrice: 9.50 },
+          ];
+
+          const weekdays = [
+            { d: 1, label: "Mo" }, { d: 2, label: "Di" }, { d: 3, label: "Mi" },
+            { d: 4, label: "Do" }, { d: 5, label: "Fr" }, { d: 6, label: "Sa" }, { d: 0, label: "So" },
           ];
 
           return (
-            <div className="bg-white rounded-2xl shadow-sm p-6 max-w-2xl">
+            <div className="bg-white rounded-2xl shadow-sm p-6 max-w-xl">
               <h2 className="font-bold text-gray-800 mb-1">☀️ Mittagsangebot konfigurieren</h2>
-              <p className="text-sm text-gray-500 mb-5">
-                Aktiv <strong>Mo–Fr, 10:30–14:00 Uhr</strong>. Aktivieren Sie die gewünschten Kategorien und legen Sie den Mittagspreis fest.
-              </p>
+              <p className="text-sm text-gray-500 mb-5">Gericht pro Kategorie auswählen, Preis und Angebotszeiten festlegen.</p>
 
+              {/* Angebotszeiten */}
+              <div className="mb-5 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <p className="text-sm font-bold text-gray-800 mb-3">🕐 Angebotszeiten</p>
+                <div className="flex items-center gap-3 mb-4">
+                  <label className="text-sm text-gray-600 w-8">Von</label>
+                  <input
+                    type="time"
+                    className="border-2 border-amber-400 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    value={lunchConfig.startTime}
+                    onChange={(e) => setLunchConfig(prev => ({ ...prev, startTime: e.target.value }))}
+                  />
+                  <label className="text-sm text-gray-600 w-6">Bis</label>
+                  <input
+                    type="time"
+                    className="border-2 border-amber-400 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    value={lunchConfig.endTime}
+                    onChange={(e) => setLunchConfig(prev => ({ ...prev, endTime: e.target.value }))}
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {weekdays.map(({ d, label }) => {
+                    const active = lunchConfig.days.includes(d);
+                    return (
+                      <button
+                        key={d}
+                        onClick={() => setLunchConfig(prev => ({
+                          ...prev,
+                          days: active ? prev.days.filter(x => x !== d) : [...prev.days, d].sort(),
+                        }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition ${active ? "bg-amber-500 border-amber-500 text-white" : "bg-white border-gray-300 text-gray-500"}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3 Kategorien */}
               {cats.map(({ key, label, emoji, items, defaultPrice }) => {
                 const cfg = lunchConfig[key];
                 return (
-                  <div key={key} className={`mb-5 rounded-xl border-2 p-4 transition ${cfg.enabled ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{emoji}</span>
-                        <span className="font-bold text-gray-900">{label}</span>
-                        <span className="text-xs text-gray-500">({items.length} Gerichte)</span>
+                  <div key={key} className="mb-5">
+                    <label className="block text-sm font-bold text-amber-800 mb-1.5">{emoji} {label}</label>
+                    <select
+                      className={`w-full border-2 rounded-xl px-3 py-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 transition appearance-none cursor-pointer
+                        ${cfg.itemId ? "border-amber-500 bg-amber-50" : "border-gray-300 bg-white"}`}
+                      value={cfg.itemId}
+                      onChange={(e) => setLunchConfig(prev => ({ ...prev, [key]: { ...prev[key], itemId: e.target.value } }))}
+                    >
+                      <option value="">— Gericht wählen —</option>
+                      {items.map(item => (
+                        <option key={item.id} value={item.id}>
+                          [{item.nr}] {item.name} – {item.price.toFixed(2).replace(".", ",")} €
+                        </option>
+                      ))}
+                    </select>
+                    {cfg.itemId && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <span className="text-xs text-gray-600 flex-1">
+                          ✓ {items.find(i => i.id === cfg.itemId)?.name}
+                        </span>
+                        <label className="text-xs font-semibold text-amber-800 whitespace-nowrap">Mittagspreis:</label>
+                        <div className="relative">
+                          <input
+                            type="number" min="0" step="0.10"
+                            className="w-24 border-2 border-amber-400 rounded-lg px-2 py-1.5 text-sm font-bold text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                            value={cfg.price}
+                            onChange={(e) => setLunchConfig(prev => ({
+                              ...prev, [key]: { ...prev[key], price: parseFloat(e.target.value) || defaultPrice }
+                            }))}
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">€</span>
+                        </div>
                       </div>
-                      {/* Toggle */}
-                      <button
-                        onClick={() => setLunchConfig(prev => ({ ...prev, [key]: { ...prev[key], enabled: !prev[key].enabled } }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${cfg.enabled ? "bg-amber-500" : "bg-gray-300"}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfg.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                      </button>
-                    </div>
-
-                    {cfg.enabled && (
-                      <>
-                        <div className="flex items-center gap-3 mb-3">
-                          <label className="text-sm font-semibold text-amber-800 whitespace-nowrap">Mittagspreis:</label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.10"
-                              className="w-28 border-2 border-amber-400 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                              value={cfg.price}
-                              onChange={(e) => setLunchConfig(prev => ({
-                                ...prev,
-                                [key]: { ...prev[key], price: parseFloat(e.target.value) || defaultPrice }
-                              }))}
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">€</span>
-                          </div>
-                          <span className="text-xs text-gray-500">(Standard: {defaultPrice.toFixed(2).replace(".", ",")} €)</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto">
-                          {items.map(item => (
-                            <div key={item.id} className="text-xs text-gray-700 bg-white rounded px-2 py-1 border border-amber-200 truncate">
-                              <span className="font-mono text-gray-400 mr-1">{item.nr}</span>
-                              {item.name}
-                            </div>
-                          ))}
-                        </div>
-                      </>
                     )}
                   </div>
                 );
